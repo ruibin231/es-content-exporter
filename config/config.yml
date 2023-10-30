@@ -1,0 +1,7 @@
+settings:
+  host: 127.0.0.1
+  port: 9200
+  IndexPrefix: "elk-logs"
+  field: "message"
+  content: "level=error"
+  cycle: 5
