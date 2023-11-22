@@ -11,7 +11,8 @@ var EsCollect *ElasticMetrics
 
 type ElasticMetrics struct {
 	ESConn        *prometheus.GaugeVec
-	LogErrorCount *prometheus.GaugeVec
+	LogQueryGauge *prometheus.GaugeVec
+	LogQueryTotal *prometheus.CounterVec
 }
 
 func newMetrics() *ElasticMetrics {
@@ -21,20 +22,30 @@ func newMetrics() *ElasticMetrics {
 			Help: "Current elastic search connection",
 		},
 			[]string{"node"}),
-		LogErrorCount: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		LogQueryGauge: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "es_log_alert_count",
 			Help: "Query elastic search message errors count",
 		},
+			[]string{"es", "field", "content", "index"}),
+		LogQueryTotal: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "es_log_query_counter",
+				Help: "Query elastic search message counter",
+			},
 			[]string{"es", "field", "content", "index"}),
 	}
 }
 
 func RegistryEsCollect(reg *prometheus.Registry) {
-	reg.MustRegister(EsCollect.ESConn, EsCollect.LogErrorCount)
+	reg.MustRegister(EsCollect.ESConn, EsCollect.LogQueryTotal, EsCollect.LogQueryGauge)
 	EsCollect.ESConn.WithLabelValues(settings.Config.Host).Set(0)
-	EsCollect.LogErrorCount.With(prometheus.Labels{
+	EsCollect.LogQueryGauge.With(prometheus.Labels{
 		"es": settings.Config.Host, "field": settings.Config.Field,
 		"content": settings.Config.Content, "index": settings.Config.IndexPrefix}).Set(0)
+	EsCollect.LogQueryTotal.With(prometheus.Labels{
+		"es": settings.Config.Host, "field": settings.Config.Field,
+		"content": settings.Config.Content, "index": settings.Config.IndexPrefix,
+	}).Add(float64(0))
 }
 
 func TickerTask() {
@@ -49,10 +60,14 @@ func TickerTask() {
 		} else {
 			EsCollect.ESConn.WithLabelValues(settings.Config.Host).Set(0)
 		}
-		EsCollect.LogErrorCount.With(prometheus.Labels{
+		EsCollect.LogQueryGauge.With(prometheus.Labels{
 			"es": settings.Config.Host, "field": settings.Config.Field,
 			"content": settings.Config.Content, "index": settings.Config.IndexPrefix}).
 			Set(float64(queryCount))
+		EsCollect.LogQueryTotal.With(prometheus.Labels{
+			"es": settings.Config.Host, "field": settings.Config.Field,
+			"content": settings.Config.Content, "index": settings.Config.IndexPrefix,
+		}).Add(float64(queryCount))
 	}
 }
 
