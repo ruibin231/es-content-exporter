@@ -1,7 +1,21 @@
 settings:
-  host: 127.0.0.1
-  port: 9200
-  IndexPrefix: "elk-logs"
-  field: "message"
-  content: "level=error"
-  cycle: 1
+  esList:
+    - alise: "node-01"
+      host: 127.0.0.1
+      port: 9200
+  queryList:
+    - es: "node-01"
+      IndexPrefix: "elk-logs"
+      field: "message"
+      content: "level=error"
+      cycle: 1
+    - es: "node-01"
+      IndexPrefix: "elk-logs*"
+      field: "message"
+      content: "出错啦"
+      cycle: 1
+    - es: "node-01"
+      IndexPrefix: "elk-logs*"
+      field: "message"
+      content: "xiaojia test"
+      cycle: 1

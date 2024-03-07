@@ -37,7 +37,7 @@ func setup() {
 func run() {
 	reg := prometheus.NewRegistry()
 	collecters.RegistryEsCollect(reg)
-	go collecters.TickerTask()
+	go collecters.StartTasks()
 	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
 	go http.ListenAndServe(":9999", nil)
 	quit := make(chan os.Signal, 1)

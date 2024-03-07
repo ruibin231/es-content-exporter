@@ -3,6 +3,7 @@ package collecters
 import (
 	"es-content-export/pkgs/es"
 	"es-content-export/settings"
+	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
 	"time"
 )
@@ -38,36 +39,38 @@ func newMetrics() *ElasticMetrics {
 
 func RegistryEsCollect(reg *prometheus.Registry) {
 	reg.MustRegister(EsCollect.ESConn, EsCollect.LogQueryTotal, EsCollect.LogQueryGauge)
-	EsCollect.ESConn.WithLabelValues(settings.Config.Host).Set(0)
-	EsCollect.LogQueryGauge.With(prometheus.Labels{
-		"es": settings.Config.Host, "field": settings.Config.Field,
-		"content": settings.Config.Content, "index": settings.Config.IndexPrefix}).Set(0)
-	EsCollect.LogQueryTotal.With(prometheus.Labels{
-		"es": settings.Config.Host, "field": settings.Config.Field,
-		"content": settings.Config.Content, "index": settings.Config.IndexPrefix,
-	}).Add(float64(0))
 }
 
-func TickerTask() {
-	cycle := settings.Config.Cycle
+func TickerTask(esClient *settings.EsClient, queryData *settings.QueryData) {
+	cycle := queryData.Cycle
 	ticker := time.NewTicker(time.Duration(cycle) * time.Minute)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		queryCount, err := es.QueryLogCount()
+		queryCount, err := es.QueryLogCount(esClient, queryData)
 		if err != nil {
-			EsCollect.ESConn.WithLabelValues(settings.Config.Host).Set(1)
+			EsCollect.ESConn.WithLabelValues(esClient.Host).Set(1)
 		} else {
-			EsCollect.ESConn.WithLabelValues(settings.Config.Host).Set(0)
+			EsCollect.ESConn.WithLabelValues(esClient.Host).Set(0)
 		}
 		EsCollect.LogQueryGauge.With(prometheus.Labels{
-			"es": settings.Config.Host, "field": settings.Config.Field,
-			"content": settings.Config.Content, "index": settings.Config.IndexPrefix}).
+			"es": esClient.Host, "field": queryData.Field,
+			"content": queryData.Content, "index": queryData.IndexPrefix}).
 			Set(float64(queryCount))
 		EsCollect.LogQueryTotal.With(prometheus.Labels{
-			"es": settings.Config.Host, "field": settings.Config.Field,
-			"content": settings.Config.Content, "index": settings.Config.IndexPrefix,
+			"es": esClient.Host, "field": queryData.Field,
+			"content": queryData.Content, "index": queryData.IndexPrefix,
 		}).Add(float64(queryCount))
+	}
+}
+
+func StartTasks() {
+	for _, q := range settings.Config.QueryList {
+		if e, ok := settings.ESMap[q.ES]; ok {
+			go TickerTask(e, q)
+		} else {
+			fmt.Printf("找不到es: %s", q.ES)
+		}
 	}
 }
 

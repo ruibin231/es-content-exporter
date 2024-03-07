@@ -9,6 +9,7 @@ import (
 const common = "settings"
 
 var Config config
+var ESMap = make(map[string]*EsClient)
 
 type set struct {
 	viper *viper.Viper
@@ -17,6 +18,9 @@ type set struct {
 func (s *set) unmarshalKey() {
 	if err := s.viper.UnmarshalKey(common, &Config); err != nil {
 		panic(err)
+	}
+	for _, c := range Config.EsList {
+		ESMap[c.Alise] = c
 	}
 }
 

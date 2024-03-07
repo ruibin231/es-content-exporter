@@ -8,31 +8,32 @@ import (
 	"strings"
 )
 
-func formatIndex() string {
-	if strings.HasSuffix(settings.Config.IndexPrefix, "*") {
-		return settings.Config.IndexPrefix
+func formatIndex(index string) string {
+	if strings.HasSuffix(index, "*") {
+		return index
 	}
-	return fmt.Sprintf("%s*", settings.Config.IndexPrefix)
+	return fmt.Sprintf("%s*", index)
 }
 
-func QueryLogCount() (int64, error) {
-	client, err := NewESClient()
+func QueryLogCount(esClient *settings.EsClient, queryData *settings.QueryData) (int64, error) {
+	client, err := NewESClient(esClient)
 	if err != nil {
 		fmt.Println(err)
 		return 0, err
 	}
-	index := elastic.NewWildcardQuery("_index", formatIndex())
+	index := elastic.NewWildcardQuery("_index", formatIndex(queryData.IndexPrefix))
 	searchQuery := elastic.NewBoolQuery()
 	searchQuery.Must(elastic.NewRangeQuery("@timestamp").Gte(
-		fmt.Sprintf("now-%dm", settings.Config.Cycle)).Lte("now"))
-	for _, val := range settings.Config.Must {
-		searchQuery.Must(elastic.NewMatchQuery(settings.Config.Field, val))
-	}
-	if len(settings.Config.MustNot) > 0 {
-		for _, noVal := range settings.Config.MustNot {
-			searchQuery.MustNot(elastic.NewMatchQuery(settings.Config.Field, noVal))
-		}
-	}
+		fmt.Sprintf("now-%dm", queryData.Cycle)).Lte("now"))
+	searchQuery.Must(elastic.NewMatchPhraseQuery(queryData.Field, queryData.Content))
+	//for _, val := range settings.Config.Must {
+	//	searchQuery.Must(elastic.NewMatchQuery(settings.Config.Field, val))
+	//}
+	//if len(settings.Config.MustNot) > 0 {
+	//	for _, noVal := range settings.Config.MustNot {
+	//		searchQuery.MustNot(elastic.NewMatchQuery(settings.Config.Field, noVal))
+	//	}
+	//}
 	count, err := client.Count().
 		Query(index).
 		Query(searchQuery).
